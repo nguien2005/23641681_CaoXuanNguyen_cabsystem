@@ -1,0 +1,733 @@
+openapi: 3.0.3
+
+info:
+  title: CAB - Ride Booking API
+  description: API đặc tả cho hệ thống đặt xe CAB
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local server
+
+tags:
+  - name: Authentication
+    description: Xác thực người dùng
+  - name: Booking
+    description: Đặt xe
+  - name: Driver
+    description: Tìm và phân công tài xế
+  - name: Trip
+    description: Quản lý và theo dõi chuyến đi
+  - name: Payment
+    description: Thanh toán
+  - name: Review
+    description: Đánh giá tài xế
+
+paths:
+
+  # =========================
+  # 1. ĐĂNG NHẬP
+  # =========================
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Đăng nhập
+      description: Cho phép khách hàng, tài xế và nhân viên đăng nhập hệ thống.
+      operationId: login
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+
+      responses:
+        '200':
+          description: Đăng nhập thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+
+        '401':
+          description: Sai thông tin đăng nhập
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '403':
+          description: Tài khoản không hoạt động
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+
+  # =========================
+  # 2. ĐẶT XE
+  # =========================
+  /bookings:
+    post:
+      tags:
+        - Booking
+      summary: Đặt xe
+      description: Khách hàng tạo yêu cầu đặt xe.
+      operationId: createBooking
+
+      security:
+        - bearerAuth: []
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
+
+      responses:
+        '201':
+          description: Tạo yêu cầu đặt xe thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+
+        '400':
+          description: Thông tin đặt xe không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '401':
+          description: Chưa đăng nhập
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+
+  # =========================
+  # 3. TÌM TÀI XẾ
+  # =========================
+  /drivers/search:
+    get:
+      tags:
+        - Driver
+      summary: Tìm tài xế phù hợp
+      description: Tìm tài xế đang sẵn sàng và phù hợp với loại xe.
+      operationId: searchDrivers
+
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - name: pickup_lat
+          in: query
+          required: true
+          description: Vĩ độ điểm đón
+          schema:
+            type: number
+            format: double
+
+        - name: pickup_lng
+          in: query
+          required: true
+          description: Kinh độ điểm đón
+          schema:
+            type: number
+            format: double
+
+        - name: vehicle_type
+          in: query
+          required: true
+          description: Loại xe cần tìm
+          schema:
+            type: string
+            example: car
+
+      responses:
+        '200':
+          description: Danh sách tài xế phù hợp
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Driver'
+
+        '404':
+          description: Không tìm thấy tài xế
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+
+  # =========================
+  # 4. THEO DÕI CHUYẾN
+  # =========================
+  /bookings/{booking_id}:
+    get:
+      tags:
+        - Trip
+      summary: Theo dõi chuyến đi
+      description: Xem trạng thái, thông tin tài xế và vị trí tài xế.
+      operationId: getBooking
+
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - name: booking_id
+          in: path
+          required: true
+          description: Mã chuyến đi
+          schema:
+            type: integer
+            example: 10001
+
+      responses:
+        '200':
+          description: Lấy thông tin chuyến thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+
+        '404':
+          description: Không tìm thấy chuyến
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+
+  # =========================
+  # 5. CẬP NHẬT TRẠNG THÁI
+  # =========================
+  /bookings/{booking_id}/status:
+    put:
+      tags:
+        - Trip
+      summary: Cập nhật trạng thái chuyến
+      description: Tài xế cập nhật trạng thái trong quá trình thực hiện chuyến.
+      operationId: updateTripStatus
+
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - name: booking_id
+          in: path
+          required: true
+          description: Mã chuyến đi
+          schema:
+            type: integer
+            example: 10001
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTripStatusRequest'
+
+      responses:
+        '200':
+          description: Cập nhật trạng thái thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+
+        '400':
+          description: Trạng thái không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '403':
+          description: Không có quyền cập nhật chuyến
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+
+  # =========================
+  # 6. THANH TOÁN
+  # =========================
+  /payments:
+    post:
+      tags:
+        - Payment
+      summary: Thanh toán chuyến đi
+      description: Thanh toán chi phí chuyến đi bằng tiền mặt hoặc điện tử.
+      operationId: createPayment
+
+      security:
+        - bearerAuth: []
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequest'
+
+      responses:
+        '200':
+          description: Thanh toán thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+
+        '400':
+          description: Phương thức thanh toán không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '402':
+          description: Thanh toán thất bại
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+
+  # =========================
+  # 7. ĐÁNH GIÁ TÀI XẾ
+  # =========================
+  /reviews:
+    post:
+      tags:
+        - Review
+      summary: Đánh giá tài xế
+      description: Khách hàng đánh giá tài xế sau khi chuyến đi hoàn thành.
+      operationId: createReview
+
+      security:
+        - bearerAuth: []
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewRequest'
+
+      responses:
+        '201':
+          description: Đánh giá thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewResponse'
+
+        '400':
+          description: Dữ liệu đánh giá không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '404':
+          description: Không tìm thấy chuyến
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+
+# =====================================
+# COMPONENTS
+# =====================================
+
+components:
+
+  # =========================
+  # AUTHENTICATION
+  # =========================
+  securitySchemes:
+
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+
+  # =========================
+  # SCHEMAS
+  # =========================
+  schemas:
+
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: nguyenvana
+        password:
+          type: string
+          format: password
+          example: 123456
+
+
+    LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+
+        message:
+          type: string
+          example: Đăng nhập thành công
+
+        data:
+          type: object
+          properties:
+            user_id:
+              type: integer
+              example: 1
+
+            username:
+              type: string
+              example: nguyenvana
+
+            role:
+              type: string
+              example: customer
+
+            access_token:
+              type: string
+              example: eyJhbGciOiJIUzI1NiIs...
+
+
+    CreateBookingRequest:
+      type: object
+      required:
+        - pickup_address
+        - destination_address
+        - vehicle_type
+      properties:
+
+        pickup_address:
+          type: string
+          example: 12 Nguyễn Văn Cừ, Quận 5, TP.HCM
+
+        destination_address:
+          type: string
+          example: 268 Lý Thường Kiệt, Quận 10, TP.HCM
+
+        pickup_lat:
+          type: number
+          format: double
+          example: 10.762622
+
+        pickup_lng:
+          type: number
+          format: double
+          example: 106.660172
+
+        destination_lat:
+          type: number
+          format: double
+          example: 10.773789
+
+        destination_lng:
+          type: number
+          format: double
+          example: 106.667983
+
+        vehicle_type:
+          type: string
+          example: car
+
+
+    BookingResponse:
+      type: object
+      properties:
+
+        success:
+          type: boolean
+          example: true
+
+        message:
+          type: string
+          example: Thông tin chuyến đi
+
+        data:
+          type: object
+          properties:
+
+            booking_id:
+              type: integer
+              example: 10001
+
+            customer_id:
+              type: integer
+              example: 1
+
+            driver_id:
+              type: integer
+              nullable: true
+              example: 25
+
+            pickup_address:
+              type: string
+              example: 12 Nguyễn Văn Cừ, Quận 5, TP.HCM
+
+            destination_address:
+              type: string
+              example: 268 Lý Thường Kiệt, Quận 10, TP.HCM
+
+            vehicle_type:
+              type: string
+              example: car
+
+            status:
+              type: string
+              enum:
+                - searching_driver
+                - driver_assigned
+                - arriving_pickup
+                - arrived_pickup
+                - picked_up
+                - in_progress
+                - completed
+                - cancelled
+              example: driver_assigned
+
+            estimated_arrival:
+              type: integer
+              description: Thời gian dự kiến tài xế đến, tính bằng phút
+              example: 5
+
+            driver:
+              $ref: '#/components/schemas/Driver'
+
+
+    Driver:
+      type: object
+      properties:
+
+        driver_id:
+          type: integer
+          example: 25
+
+        full_name:
+          type: string
+          example: Nguyễn Văn B
+
+        phone:
+          type: string
+          example: 0901234567
+
+        vehicle_type:
+          type: string
+          example: car
+
+        vehicle_plate:
+          type: string
+          example: 59A-12345
+
+        status:
+          type: string
+          enum:
+            - available
+            - busy
+            - offline
+          example: available
+
+        latitude:
+          type: number
+          format: double
+          example: 10.763100
+
+        longitude:
+          type: number
+          format: double
+          example: 106.661200
+
+
+    UpdateTripStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+
+        status:
+          type: string
+          enum:
+            - arriving_pickup
+            - arrived_pickup
+            - picked_up
+            - in_progress
+            - completed
+            - cancelled
+          example: arriving_pickup
+
+
+    PaymentRequest:
+      type: object
+      required:
+        - booking_id
+        - payment_method
+      properties:
+
+        booking_id:
+          type: integer
+          example: 10001
+
+        payment_method:
+          type: string
+          enum:
+            - cash
+            - electronic
+          example: electronic
+
+
+    PaymentResponse:
+      type: object
+      properties:
+
+        success:
+          type: boolean
+          example: true
+
+        message:
+          type: string
+          example: Thanh toán thành công
+
+        data:
+          type: object
+          properties:
+
+            payment_id:
+              type: integer
+              example: 50001
+
+            booking_id:
+              type: integer
+              example: 10001
+
+            amount:
+              type: number
+              format: double
+              example: 85000
+
+            payment_method:
+              type: string
+              example: electronic
+
+            status:
+              type: string
+              enum:
+                - pending
+                - paid
+                - failed
+              example: paid
+
+            transaction_code:
+              type: string
+              nullable: true
+              example: TXN202609070001
+
+
+    ReviewRequest:
+      type: object
+      required:
+        - booking_id
+        - rating
+      properties:
+
+        booking_id:
+          type: integer
+          example: 10001
+
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 5
+
+        comment:
+          type: string
+          nullable: true
+          example: Tài xế thân thiện và đến đúng giờ.
+
+
+    ReviewResponse:
+      type: object
+      properties:
+
+        success:
+          type: boolean
+          example: true
+
+        message:
+          type: string
+          example: Đánh giá đã được ghi nhận
+
+        data:
+          type: object
+          properties:
+
+            review_id:
+              type: integer
+              example: 90001
+
+            booking_id:
+              type: integer
+              example: 10001
+
+            driver_id:
+              type: integer
+              example: 25
+
+            rating:
+              type: integer
+              example: 5
+
+            comment:
+              type: string
+              example: Tài xế thân thiện và đến đúng giờ.
+
+
+    ErrorResponse:
+      type: object
+      properties:
+
+        success:
+          type: boolean
+          example: false
+
+        error:
+          type: object
+          properties:
+
+            code:
+              type: string
+              example: INVALID_BOOKING
+
+            message:
+              type: string
+              example: Thông tin đặt xe không hợp lệ.
